@@ -1457,15 +1457,15 @@ class PatchedModuleFusedSDPA(PatchedModuleBase):
                 causal_chunk_linv = causal_chunk_linv.to(torch.float32) * 128.0 if softmax_mode != "fp32" else causal_chunk_linv.to(torch.float32)
                 causal_chunk_out = self.dequant_output(causal_chunk_out).to(torch.float32)
 
-                if num_causal_kv_chunks == 1:
-                    new_m = torch.maximum(last_m, causal_chunk_m)
-                    last_linv_rescaled = (1.0 / last_linv) * torch.exp(last_m - new_m)
-                    chunk_linv_rescaled = (1.0 / causal_chunk_linv) * torch.exp(causal_chunk_m - new_m)
-                    last_linv = 1.0 / (last_linv_rescaled + chunk_linv_rescaled)
-                    last_out = (last_linv_rescaled * last_linv) * last_out + (
-                        chunk_linv_rescaled * last_linv) * causal_chunk_out
-                    last_m = new_m
-                else:
+                new_m = torch.maximum(last_m, causal_chunk_m)
+                last_linv_rescaled = (1.0 / last_linv) * torch.exp(last_m - new_m)
+                chunk_linv_rescaled = (1.0 / causal_chunk_linv) * torch.exp(causal_chunk_m - new_m)
+                last_linv = 1.0 / (last_linv_rescaled + chunk_linv_rescaled)
+                last_out = (last_linv_rescaled * last_linv) * last_out + (
+                    chunk_linv_rescaled * last_linv) * causal_chunk_out
+                last_m = new_m
+
+                if num_causal_kv_chunks > 1:
                     for kv_chunk_idx in range(0, q_chunk_idx):
                         kv_causal_start = ctx_len + kv_chunk_idx * self.q_chunk_size
                         kv_causal_end = ctx_len + (kv_chunk_idx + 1) * self.q_chunk_size
